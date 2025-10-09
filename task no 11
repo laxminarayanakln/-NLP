@@ -1,0 +1,30 @@
+import re, requests, torch
+import torch.nn as nn
+from bs4 import BeautifulSoup
+# from tensorflow.keras.utils import pad_sequences # This line was causing the error
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.utils import pad_sequences # Corrected import statement
+
+class ChunkerModel(nn.Module):
+    def __init__(self, vocab_size):
+        super().__init__()
+        self.lstm, self.fc = nn.LSTM(128, 64, batch_first=True), nn.Linear(64, 1)
+
+    def forward(self, x): return torch.sigmoid(self.fc(self.lstm(x)[0][:, -1, :]))
+
+def fetch_text(url):
+    return re.sub(r'\s+', ' ', ' '.join(p.get_text() for p in BeautifulSoup(requests.get(url).text,
+                                                                          'html.parser').find_all('p')))
+
+def preprocess(text):
+    tok = Tokenizer(num_words=5000)
+    tok.fit_on_texts([text])
+    return pad_sequences(tok.texts_to_sequences([text]), maxlen=100, padding='post'), tok
+
+def segment_text(url):
+    text, (seq, tok) = fetch_text(url), preprocess(fetch_text(url))
+    return text.split('. ')[:5]
+
+print("Extracted Chunks:",
+      *segment_text("https://www.ibm.com/think/topics/natural-language-processing"), sep="\n")
+     
